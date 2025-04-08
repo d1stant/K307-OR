@@ -1,0 +1,7 @@
+需求/
+cache/
+data/
+test/
+logs/
+__pycache__/
+test.*
