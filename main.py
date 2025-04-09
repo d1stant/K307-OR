@@ -18,10 +18,6 @@ def main():
         tab_mode = tab_list[0]
         tab_list = tab_list[1]
         tab_count = len(tab_list)
-        if tab_mode == "mode_1":
-            pass
-        elif tab_mode == "mode_2":
-            pass
         for tab_index, tab_info in enumerate(tab_list, 1):
             print_log.info(
                 f"开始: 第{venue_index}/{venue_count}个会议, 第{tab_index}/{tab_count}个板块"
@@ -37,22 +33,30 @@ def main():
                 print_log.info(
                     f"开始: 第{venue_index}/{venue_count}个会议, 第{tab_index}/{tab_count}个板块, 第{paper_index}/{paper_count}个论文"
                 )
+                # 标题
                 try:
                     paper_title = paper["content"]["title"]["value"]
-                    paper_year = time.strftime(
-                        "%Y", time.localtime(paper["pdate"] // 1000)
-                    )
-                except TypeError:
+                except (KeyError, TypeError):
+                    paper_title = paper.get("content", {}).get("title", "")
+                    if isinstance(paper_title, dict):
+                        paper_title = paper_title.get("value", "")
                     paper_title = (
-                        paper["content"]["title"]
+                        str(paper_title)
                         .replace("\n", "")
                         .replace("\r", "")
-                        .replace("  ", "")
+                        .replace("  ", " ")
+                        .strip()
                     )
-                    paper_year = time.strftime(
-                        "%Y", time.localtime(paper["tmdate"] // 1000)
-                    )
-
+                # 年份
+                date_key_list = ["pdate", "cdate"]
+                target_date = None
+                for i in date_key_list:
+                    if i in paper:  # 直接检查键是否存在
+                        target_date = paper[i]
+                        break
+                if target_date is None:
+                    raise ValueError(f"没有匹配到日期信息, {paper}")
+                paper_year = time.strftime("%Y", time.localtime(target_date // 1000))
                 paper_id = paper["id"]
                 # 下载论文
                 paper_download = PaperDownload(
@@ -78,4 +82,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_log.exception(e)

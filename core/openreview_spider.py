@@ -219,11 +219,3 @@ class PaperDownload(BaseSpider):
         with open(self.paper_review_save_path, "w", encoding="utf-8") as f:
             json.dump(review_info, f, ensure_ascii=False, indent=4)
         print_log.info(f"下载评审成功: {paper_id}")
-
-
-if __name__ == "__main__":
-    ops = OpenReviewSpider()
-    # venues = ops.get_all_venues()
-    # print(len(venues))
-    # tabs = ops.get_tab_list("TMLR")
-    ops.get_paper_review_2("ZhGJ9KQlXi9jk")
