@@ -1,3 +1,4 @@
+fake_useragent==2.0.3
 jsonpath==0.82.2
 loguru==0.7.2
 lxml==5.3.1
