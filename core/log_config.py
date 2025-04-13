@@ -27,7 +27,7 @@ print_log.level("ERROR", color="<fg #ff00cc>")
 print_log.level("CRITICAL", color="<fg #CD0000><bold>")
 
 # 日志格式
-__console_log_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level:^8}</level> : <level>{message}</level>"
+__console_log_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <blue>{thread.name}</blue> |<level>{level:^8}</level> : <level>{message}</level>"
 __file_log_format = "{time:YYYY-MM-DD HH:mm:ss} | {process.name} | {thread.name} | {file:>10}:{line}:{function}() | {level} : {message}"
 
 # 添加文件日志处理器

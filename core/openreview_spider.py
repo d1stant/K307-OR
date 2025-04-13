@@ -1,7 +1,6 @@
 import ast
 import json
 import re
-from pathlib import Path
 
 import openreview
 from jsonpath import jsonpath
@@ -9,6 +8,7 @@ from lxml import etree
 
 from core.__base_spider import BaseSpider
 from core.log_config import print_log
+from core.module import DownlaodModule
 from core.path_config import cache_dir, data_dir
 
 
@@ -49,6 +49,9 @@ class OpenReviewSpider(BaseSpider):
         url = f"https://openreview.net/group?id={venue_id}"
         response = self._request(url)
         print_log.debug(f"HTML DATA: {response.text}")
+        if "Group Not Found" in response.text:
+            print_log.error(f"会议{venue_id}不存在")
+            return []
         tree = etree.HTML(response.text)
         next_data = tree.xpath('.//*[@id="__NEXT_DATA__"]/text()')
         next_data = json.loads(next_data[0])
@@ -171,51 +174,55 @@ class OpenReviewSpider(BaseSpider):
 
 class PaperDownload(BaseSpider):
 
-    def __init__(self, venue_id: str, tab_name: str, paper_year, paper_title: str):
-        super().__init__()
-        self.__generate_save_path(venue_id, tab_name, paper_year, paper_title)
-
-    def __generate_save_path(
-        self, venue_id: str, tab_name: str, paper_year: str, paper_title: str
+    def __init__(
+        self,
+        download_info: DownlaodModule,
     ):
-        venue_id = re.sub(r'[<>:"/\\|?*]', "-", venue_id)
-        tab_name = re.sub(r'[<>:"/\\|?*]', "-", tab_name)
-        paper_title = re.sub(r'[<>:"/\\|?*]', "-", paper_title)
-        paper_save_dir = data_dir / f"{venue_id}/{tab_name}/{paper_year}"
+        super().__init__()
+        self.download_info = download_info
+
+    def __generate_save_path(self):
+        venue_id = re.sub(r'[<>:"/\\|?*]', "-", self.download_info.venue_id)
+        tab_name = re.sub(r'[<>:"/\\|?*]', "-", self.download_info.tab_name)
+        paper_title = re.sub(r'[<>:"/\\|?*]', "-", self.download_info.paper_title)
+        paper_save_dir = (
+            data_dir / f"{venue_id}/{tab_name}/{self.download_info.paper_year}"
+        )
         paper_save_dir.mkdir(parents=True, exist_ok=True)
         self.paper_save_path = paper_save_dir / f"{paper_title}.pdf"
+        if self.paper_save_path.exists():
+            print_log.info(f"已下载过: {self.download_info.paper_id}")
+            return True
         self.paper_supplement_save_path = (
             paper_save_dir / f"{paper_title}_supplement.pdf"
         )
         self.paper_review_save_path = paper_save_dir / f"{paper_title}.json"
 
-    def download_paper(self, paper_id: str):
-        if self.paper_save_path.exists():
-            print_log.info(f"论文已下载: {paper_id}")
-            return
-        url = f"https://openreview.net/pdf?id={paper_id}"
+    def download_paper(self):
+        url = f"https://openreview.net/pdf?id={self.download_info.paper_id}"
         response = self._request(url)
         with open(self.paper_save_path, "wb") as f:
             f.write(response.content)
-        print_log.info(f"下载论文成功: {paper_id}")
+        print_log.info(f"论文下载成功: {self.download_info.paper_id}")
 
-    def download_paper_supplement(self, paper_id: str):
-        if self.paper_supplement_save_path.exists():
-            print_log.info(f"支撑文件已下载")
-            return
-        url = f"https://openreview.net/attachment?id={paper_id}&name=supplementary_material"
+    def download_paper_supplement(self):
+        url = f"https://openreview.net/attachment?id={self.download_info.paper_id}&name=supplementary_material"
         response = self._request(url)
         if response.status_code == 404:
-            print_log.info(f"{paper_id}无支撑文件: {paper_id}")
+            print_log.info(f"支撑文件不存在: {self.download_info.paper_id}")
             return
         with open(self.paper_supplement_save_path, "wb") as f:
             f.write(response.content)
-        print_log.info(f"下载支撑文件成功: {paper_id}")
+        print_log.info(f"支撑下载成功: {self.download_info.paper_id}")
 
-    def download_paper_review(self, paper_id: str, review_info: list):
-        if self.paper_review_save_path.exists():
-            print_log.info(f"评审已下载: {paper_id}")
-            return
+    def download_paper_review(self):
         with open(self.paper_review_save_path, "w", encoding="utf-8") as f:
-            json.dump(review_info, f, ensure_ascii=False, indent=4)
-        print_log.info(f"下载评审成功: {paper_id}")
+            json.dump(self.download_info.review_info, f, ensure_ascii=False, indent=4)
+        print_log.info(f"评审下载成功: {self.download_info.paper_id}")
+
+    def __call__(self):
+        if self.__generate_save_path():
+            return
+        self.download_paper()
+        self.download_paper_supplement()
+        self.download_paper_review()
