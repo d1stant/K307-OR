@@ -135,6 +135,6 @@ class PaperDownload(BaseSpider):
     def __call__(self):
         if self.__generate_save_path():
             return
-        # self.download_paper()
-        # self.download_paper_supplement()
+        self.download_paper()
+        self.download_paper_supplement()
         self.download_paper_review()
