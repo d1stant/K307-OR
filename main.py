@@ -2,54 +2,66 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from core.log_config import print_log
-from core.openreview_spider import OpenReviewSpider, PaperDownload
+from core.openreview_spider import OpenReviewSpider, PaperDownload, get_all_venues
 from module.data_module import DownlaodModule
 from module.params_module import params_module_list
 
 # 获取所有会议的venue_id
-openreview_spider = OpenReviewSpider()
-venue_list = openreview_spider.get_all_venues()
+venue_list = get_all_venues()
 venue_count = len(venue_list)
 print_log.info(f"全部共{venue_count}个会议, 保存在./cache/venues.json中的members字段")
 # 指定要获取的venue_id
-venue_list = venue_list = [
-    # "ICLR.cc/2020/Conference",
-    # "ICLR.cc/2021/Conference",
-    # "ICLR.cc/2022/Conference",
+venue_list = [
+    "ICLR.cc/2020/Conference",
+    "ICLR.cc/2021/Conference",
+    "ICLR.cc/2022/Conference",
     "ICLR.cc/2023/Conference",
     "ICLR.cc/2025/Conference",
+    "ICML.cc/2020/Conference",
+    "ICML.cc/2023/Conference",
+    "ICML.cc/2024/Conference",
+    "ICML.cc/2025/Conference",
+    "NeurIPS.cc/2020/Conference",
+    "NeurIPS.cc/2021/Conference",
+    "NeurIPS.cc/2022/Conference",
+    "NeurIPS.cc/2023/Conference",
+    "NeurIPS.cc/2024/Conference",
+    "NeurIPS.cc/2025/Conference",
 ]
 
 venue_count = len(venue_list)
 print_log.info(f"指定需要获取{venue_count}个会议")
 # 线程数设置
-thread_num = 4
+thread_num = 6
 
 
 def main():
     for venue_index, venue_id in enumerate(venue_list, 1):
         print_log.info(f"开始: 第{venue_index}/{venue_count}个会议: {venue_id}")
-        # 检查参数模型
-        params_module = None
-        for params_module_ in params_module_list:
-            if params_module_.venue_id == venue_id:
-                params_module = params_module_
-        if params_module is None:
-            print_log.error(f"没有找到匹配的参数模型, 需要维护: {venue_id}")
+        # # 检查参数模型
+        # params_module = None
+        # for params_module_ in params_module_list:
+        #     if params_module_.venue_id == venue_id:
+        #         params_module = params_module_
+        # if params_module is None:
+        #     print_log.error(f"没有找到匹配的参数模型, 需要维护: {venue_id}")
+        #     continue
+        openreview_spider = OpenReviewSpider(venue_id)
+        paper_list = openreview_spider()
+        if not paper_list:
             continue
-        paper_list = openreview_spider.get_paper_list(params_module)
         paper_count = len(paper_list)
         futures = []
         with ThreadPoolExecutor(
             max_workers=thread_num, thread_name_prefix="下载"
         ) as executor:
-            for paper_index, paper in enumerate(paper_list, 1):
+            for paper_index, paper_info in enumerate(paper_list, 1):
                 task = executor.submit(
                     multi_task,
                     venue_index,
                     paper_index,
                     paper_count,
-                    paper,
+                    paper_info,
                     venue_id,
                 )
                 futures.append(task)
@@ -86,28 +98,22 @@ def parse_year(paper):
     return paper_year
 
 
-def multi_task(
-    venue_index,
-    paper_index,
-    paper_count,
-    paper,
-    venue_id,
-):
+def multi_task(venue_index, paper_index, paper_count, paper_info, venue_id):
     print_log.info(
         f"开始: 第{venue_index}/{venue_count}个会议, 第{paper_index}/{paper_count}个论文"
     )
-    # 论文信息
-    paper_title = parse_title(paper)
-    paper_year = parse_year(paper)
-    paper_id = paper["id"]
+    # # 论文信息
+    # paper_title = parse_title(paper_info)
+    # paper_year = parse_year(paper_info)
+    # paper_id = paper_info["id"]
     # 评审内容
-    review_info = openreview_spider.get_review(paper_id)
+    # review_info = openreview_spider.get_review(paper_id)
     # 构建数据对象
-    downlaod_info = DownlaodModule(
-        venue_id, paper_year, paper_title, paper_id, review_info
-    )
+    # downlaod_info = DownlaodModule(
+    # venue_id, paper_year, paper_title, paper_id, review_info
+    # )
     # 下载
-    PaperDownload(downlaod_info)()
+    PaperDownload(venue_id, paper_info)()
     print_log.info(
         f"结束: 第{venue_index}/{venue_count}个会议, 第{paper_index}/{paper_count}个论文"
     )
