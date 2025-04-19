@@ -187,16 +187,23 @@ class PaperDownload(BaseSpider):
             )
         self.paper_review_save_path = paper_save_dir / f"{paper_title}.json"
 
-    def download_paper(self):
+    def download_paper(self) -> bool:
         # url = f"https://openreview.net/pdf?id={self.paper_id}"
         # response = self._request(url)
-        if self.api_version == 1:
-            pdf_data = client_v1.get_attachment(id=self.paper_id, field_name="pdf")
-        else:
-            pdf_data = client_v2.get_attachment(id=self.paper_id, field_name="pdf")
+        try:
+            if self.api_version == 1:
+                pdf_data = client_v1.get_attachment(id=self.paper_id, field_name="pdf")
+            else:
+                pdf_data = client_v2.get_attachment(id=self.paper_id, field_name="pdf")
+        except OpenReviewException as e:
+            status_code = e.args[0]["status"]
+            if status_code == 404:
+                print_log.warning(f"论文不存在: {self.paper_id}")
+                return False
         with open(self.paper_save_path, "wb") as f:
             f.write(pdf_data)
         print_log.info(f"论文下载成功: {self.paper_id}")
+        return True
 
     def download_paper_supplement(self):
         # url = f"https://openreview.net/attachment?id={self.paper_id}&name=supplementary_material"
@@ -231,9 +238,9 @@ class PaperDownload(BaseSpider):
     def __call__(self):
         if self.__generate_save_path():
             return
-        self.download_paper()
-        self.download_paper_supplement()
-        self.download_paper_review()
+        if self.download_paper():
+            self.download_paper_supplement()
+            self.download_paper_review()
 
 
 if __name__ == "__main__":
