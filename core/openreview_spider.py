@@ -51,6 +51,7 @@ def get_all_venues() -> list:
 class OpenReviewSpider(BaseSpider):
     def __init__(self, venue_id: str):
         super().__init__()
+        print_log.debug(f"获取venue_id: {venue_id}")
         self.venue_id = venue_id
         self.cache_file_path = cache_dir / f'{venue_id.replace("/", "_")}.json'
 
@@ -92,6 +93,9 @@ class OpenReviewSpider(BaseSpider):
             for submission_id in submition_id_list:
                 notes = client_v1.get_all_notes(invitation=submission_id)
                 for i in notes:
+                    pdf = i.content.get("pdf", "")
+                    if not pdf:
+                        continue
                     year = time.strftime("%Y", time.localtime(i.tcdate // 1000))
                     id_ = i.id
                     title = i.content["title"]
@@ -160,6 +164,7 @@ class PaperDownload(BaseSpider):
 
     def __init__(self, venue_id: str, paper_info: dict):
         super().__init__()
+        print_log.debug(f"获取文章: {paper_info}")
         self.venue_id = venue_id
         self.paper_id = paper_info["id"]
         self.paper_title = paper_info["title"]
@@ -229,3 +234,9 @@ class PaperDownload(BaseSpider):
         self.download_paper()
         self.download_paper_supplement()
         self.download_paper_review()
+
+
+if __name__ == "__main__":
+    venue_id = "ICLR.cc/2021/Conference"
+    ors = OpenReviewSpider(venue_id)
+    paper_list = ors()
